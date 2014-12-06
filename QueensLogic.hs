@@ -1,8 +1,6 @@
-{-# LANGUAGE TypeSynonymInstances #-} -- instance Show a => Show (Logic a)
-{-# LANGUAGE FlexibleInstances #-} -- instance Show a => Show (Logic a)
-{-# LANGUAGE MonadComprehensions #-} -- Logic comprehensions
-{-# LANGUAGE Rank2Types #-} -- type K m a = Monad m => (m a -> (a -> m a) -> m a)
-{-# LANGUAGE FlexibleContexts #-} -- f :: Int -> K [] Q -> (Q -> (Q, [Q]))
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE Rank2Types #-}
 
 module QueensLogic where
 

@@ -1,5 +1,5 @@
 
-# Introduction
+## Introduction
 
 The aim of these notes is to use the n queens problem to give an example of the use of the logic monad. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (available [here](http://okmij.org/ftp/papers/LogicT.pdf)). I originally learned of the logic monad from the paper "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
 
@@ -12,11 +12,13 @@ Let's first briefly explain what the logic monad is for.
 (Note: this document mixes code from QueensLogic.hs and fair.hs with repl sessions.)
 
 Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite ordered sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
+
 ```haskell
 >>> import Control.Applicative
 >>> (+) <$> [1,2,3] <*> [10,20,30]
 [11,21,31,12,22,32,13,23,33]
 ```
+
 which means
 > if we add a value which may be 1,2, or 3 to a value which may be 10,20, or 30 we get a value which may be 11,21,31,12,22,32,13,23, or 33.
 
@@ -69,7 +71,6 @@ The problem is well known, see [here](http://en.wikipedia.org/wiki/Eight_queens_
 Starting from scratch:
 
 ```haskell
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE Rank2Types #-}
@@ -89,23 +90,22 @@ choices = msum . map return
 type K m a = Monad m => (m a -> (a -> m a) -> m a)
 ```
 
-Now we get to the problem at hand. We index rows and cols and diagonals by integers. The terminology is unorthodox in that we regard rows and cols as degenerate diagonals.
+Now to the problem at hand. We index rows and cols and diagonals by integers. The terminology is a little unorthodox in that we regard rows and cols as degenerate diagonals.
 
 ```haskell
-data Diagonal
-    = Row Int
-    | Col Int
-    | Backslash Int
-    | Forwardslash Int
-    deriving (Eq, Show)
+data Diagonal = Row Int
+              | Col Int
+              | Backslash Int
+              | Forwardslash Int
+              deriving (Eq, Show)
 ```
 
-Given a position `(i,j)` on the board, we send it to the list [Row, Col, Backslash, Forwardslash] containing it. We have chosen the numbering of diagonals so that there is no need to pass in the global board size. Note that the type Queens is meant to be a collection (not a nondeterministic value) of integers, such that the ith element of the list is j iff there is a queen at position `(i,j)`.
+Given a position `(i,j)` on the board, we send it to the list `[Row r, Col c, Backslash b, Forwardslash f]` containing it. We have chosen the numbering of diagonals so that there is no need to pass in the global board size. Note that the type Queens is meant to be a collection (not a nondeterministic value) of integers, such that the ith element of the list is j iff there is a queen at position `(i,j)`.
 
 ```haskell
 type Square = (Int,Int)
 type Queens = [Int] -- a configuration of nonattacking queens on the board
-type Q = Queens -- save some typing
+type Q = Queens
 
 diags :: Square -> [Diagonal]
 diags (i,j) = [ Row i
@@ -121,7 +121,7 @@ iswrt (i,j) qs = diags (i,j) `intersect` underThreat == []
     underThreat = qs' >>= diags
 ```
 
-The following function is the inductive step of the algorithm. Given an admissible placement `qs` of queens, where the length of `qs` is strictly less than the dimension `n` of the board, `awtaoq` returns a nondeterministic value of all of the ways to extend `qs` by one more queen and still have an admissible placement of queens on the board. Using a monad comprehension (link?) is how we enforce our chosen notion of nondeterminism.
+The following function is the inductive step of the algorithm. Given an admissible placement `qs` of queens, where the length of `qs` is strictly less than the dimension `n` of the board, `awtaoq` returns a nondeterministic value of all of the ways to extend `qs` by one more queen and still have an admissible placement of queens on the board. Using a [monad comprehension](https://ghc.haskell.org/trac/ghc/wiki/MonadComprehensions) is how we enforce our chosen notion of nondeterminism.
 
 ```haskell
 -- awtaoq := "all ways to add one queen"
@@ -200,7 +200,7 @@ As we expected, the logic monad traversed the search tree differently from the l
 
 Now, since the list monad traversal was so easy to understand, might we obtain a similarly simple description of the logic monad traveral? Not that I could tell.
 
-I contented myself with the following diagrams (for n = 4, 5) of the traversal, made with [Diagrams](http://projects.haskell.org/diagrams/). Note that the trees shown in the figures are much larger than the search trees created by folding `awtaoq` n times.
+I contented myself with the following diagrams (for n = 4, 5) of the traversal, made with [Diagrams](http://projects.haskell.org/diagrams/). Note that the trees shown in the figures are much larger than the search trees created by folding `awtaoq` n times, since the search tree is being pruned by the algorithm as it goes (depending on which of `(>>=)` or `(>>-)` we use).
 
 TODO: add the diagrams.
 
