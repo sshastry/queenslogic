@@ -5,7 +5,7 @@
 module QueensLogic where
 
 import Control.Monad.Logic
-import Data.List (intersect, (\\))
+import Data.List (intersect)
 
 instance Show a => Show (Logic a) where
     show l = "Logic> " ++ (show $ observeAll l)

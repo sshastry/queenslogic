@@ -2,7 +2,7 @@
 import Control.Monad.Logic
 
 odds :: [Integer]
-odds = (return 1) ++ (odds >>= \x -> [x+2])
+odds = [1] ++ (odds >>= \x -> [x+2])
 
 ts :: [Integer]
 ts = [10] ++ [20] ++ [30]

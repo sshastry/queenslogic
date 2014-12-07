@@ -1,17 +1,15 @@
 
 ## Introduction
 
-The aim of these notes is to use the n queens problem to give an example of the use of the logic monad. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (available [here](http://okmij.org/ftp/papers/LogicT.pdf)). I originally learned of the logic monad from the paper "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
+The aim of these notes is to use the n queens problem to give an example of the use of the logic monad. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (available [here](http://okmij.org/ftp/papers/LogicT.pdf)). I originally learned of the logic monad from "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
 
-The examples in those papers seemed a bit complicated to me. The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving that using the logic monad.
+The examples in those articles seemed a bit complicated to me. The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving that using the logic monad.
 
 Let's first briefly explain what the logic monad is for.
 
 ## Logic
 
-(Note: this document mixes code from QueensLogic.hs and fair.hs with repl sessions.)
-
-Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite ordered sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
+Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite or countably infinite ordered sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
 
 ```haskell
 >>> import Control.Applicative
@@ -22,11 +20,11 @@ Besides being used for collections, the list type Haskell is used to represent a
 which means
 > if we add a value which may be 1,2, or 3 to a value which may be 10,20, or 30 we get a value which may be 11,21,31,12,22,32,13,23, or 33.
 
-If we naively build up a nondeterministic value using `(++)` and `(>>=)` for the list monad, we might encounter the following problem (example taken from the paper by Kiselyov et al).
+Naively building up a nondeterministic value using `(++)` and `(>>=)` for the list monad, we might encounter the following problem (example taken from the paper by Kiselyov et al).
 
 ```haskell
 odds :: [Integer]
-odds = (return 1) ++ (odds >>= \x -> [x+2])
+odds = [1] ++ (odds >>= \x -> [x+2])
 
 ts :: [Integer]
 ts = [10] ++ [20] ++ [30]
@@ -60,7 +58,7 @@ In the repl:
 >>>
 ```
 
-That, in a nutshell, is the point of the logic monad, or rather of `MonadPlus` instances which are made into instances of `MonadLogic`. On such instances, we have fair versions of `mplus` and `(>>=)` which are denoted `interleave` and `(>>-)` respectively (so we can still use the unfair `mplus` and `(>>=)` if we need them).
+That's a simple example of the use of the logic monad, or rather of `MonadPlus` instances which are made into instances of `MonadLogic`. On such instances, we have fair versions of `mplus` and `(>>=)` which are denoted `interleave` and `(>>-)` respectively (so we can still use the unfair `mplus` and `(>>=)` if we need them).
 
 The above example doesn't explain when to use `(>>-)` instead of `(>>=)`; I'll refer to the paper by Kiselyov et al for more on that.
 
@@ -78,7 +76,7 @@ Starting from scratch:
 module QueensLogic where
 
 import Control.Monad.Logic
-import Data.List (intersect, (\\))
+import Data.List (intersect)
 
 instance Show a => Show (Logic a) where
     show l = "Logic> " ++ (show $ observeAll l)
@@ -90,7 +88,7 @@ choices = msum . map return
 type K m a = Monad m => (m a -> (a -> m a) -> m a)
 ```
 
-Now to the problem at hand. We index rows and cols and diagonals by integers. The terminology is a little unorthodox in that we regard rows and cols as degenerate diagonals.
+Now to the problem at hand. We index rows and cols and diagonals by integers. The terminology is a little unorthodox in that we regard rows and columns as degenerate diagonals.
 
 ```haskell
 data Diagonal = Row Int
@@ -188,15 +186,17 @@ Logic> [[2,4,6,8,3,1,7,5],[3,1,7,5,8,2,4,6],[1,5,8,6,3,7,2,4],[2,5,7,1,3,8,6,4],
         [7,4,2,8,6,1,3,5],[7,5,3,1,6,8,2,4]]
 ```
 
-First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes.
+First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes. Also as a sanity check, let's make sure that we get 92 solutions of the 8 queens problem.
 
 ```haskell
 >>> import Data.Set as Set
 >>> Set.fromList (queens 8 (>>=) :: [Q]) == Set.fromList (observeAll (queens 8 (>>-) :: Logic Q))
 True
+>>> length (queens 8 (>>=) :: [Q])
+92
 ```
 
-As we expected, the logic monad traversed the search tree differently from the list monad. Looking at the output from the list monad, we can see that the solutions were produced in lexicographic order. This corresponds to the fact that the list monad traversed the search space using depth first traversal. See [here](http://cs.nyu.edu/courses/spring03/G22.2560-001/nondet.html) for a discussion of the search spaces associated to nondeterministic computations and the depth first traversal of those spaces.
+As expected, the logic monad traversed the search tree differently from the list monad. Looking at the output from the list monad, we can see that the solutions were produced in lexicographic order. This corresponds to the fact that the list monad traversed the search space using depth first traversal. See [here](http://cs.nyu.edu/courses/spring03/G22.2560-001/nondet.html) for a discussion of the search spaces associated to nondeterministic algorithms.
 
 Now, since the list monad traversal was so easy to understand, might we obtain a similarly simple description of the logic monad traveral? Not that I could tell.
 
