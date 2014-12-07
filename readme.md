@@ -20,7 +20,15 @@ Besides being used for collections, the list type Haskell is used to represent a
 which means
 > if we add a value which may be 1,2, or 3 to a value which may be 10,20, or 30 we get a value which may be 11,21,31,12,22,32,13,23, or 33.
 
-Naively building up a nondeterministic value using `(++)` and `(>>=)` for the list monad, we might encounter the following problem (example taken from the paper by Kiselyov et al).
+Naively building up a nondeterministic value using `(++)` for the list monad, we might encounter the following problem (example taken from the paper by Kiselyov et al):
+
+```haskell
+>>> let odds = map (\x -> 2*x + 1) [0..]
+>>> head $ filter even (odds ++ [10,20,30])
+^CInterrupted.
+```
+
+i.e. ghci hangs and we had to ctrl-c out of it. Let's make very explicit the operations of the list monad:
 
 ```haskell
 odds :: [Integer]
@@ -33,7 +41,9 @@ z :: Integer
 z = head $ (odds ++ ts) >>= (\x -> if even x then [x] else [])
 ```
 
-If we load this into ghci and try to evaluate z, we find that ghci hangs. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ [ts]`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance. Let's rewrite the above with the logic monad as follows.
+As before, if we were to try to evaluate `z` in the repl, ghci would hang. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ [ts]`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance.
+
+Let's rewrite the above with the logic monad as follows.
 
 ```haskell
 import Control.Monad.Logic
@@ -186,7 +196,7 @@ Logic> [[2,4,6,8,3,1,7,5],[3,1,7,5,8,2,4,6],[1,5,8,6,3,7,2,4],[2,5,7,1,3,8,6,4],
         [7,4,2,8,6,1,3,5],[7,5,3,1,6,8,2,4]]
 ```
 
-First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes. Also as a sanity check, let's make sure that we get 92 solutions of the 8 queens problem.
+First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes. Also as a sanity check, let's make sure that we get 92 solutions to the 8 queens problem.
 
 ```haskell
 >>> import Data.Set as Set
@@ -205,6 +215,8 @@ I contented myself with the following diagrams (for n = 4, 5) of the traversal, 
 ![four](https://raw.githubusercontent.com/sshastry/queenslogic/master/four.png)
 
 ![five](https://raw.githubusercontent.com/sshastry/queenslogic/master/five.png)
+
+(click on the images and zoom in)
 
 The green paths represent successful placements of n queens, which is to say, successful searches from the root to a leaf. The red paths are where the algorithm gave up at some point and backtracked. Given a red leaf, the precise point where the backtracking occurred was that unique ancestor of the red leaf which has no green path through it; those are the nodes at which the algorithm has determined that there is no way to add one more non-attacking queen.
 
