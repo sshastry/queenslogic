@@ -63,7 +63,6 @@ In the repl:
 ```haskell
 >>> z0
 10
->>>
 ```
 
 That's a simple example of the use of the logic monad, or rather of `MonadPlus` instances which are made into instances of `MonadLogic`. On such instances, we have fair versions of `mplus` and `(>>=)` which are denoted `interleave` and `(>>-)` respectively (so we can still use the unfair `mplus` and `(>>=)` if we need them).
