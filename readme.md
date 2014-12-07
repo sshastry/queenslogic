@@ -41,7 +41,7 @@ z :: Integer
 z = head $ (odds ++ ts) >>= (\x -> if even x then [x] else [])
 ```
 
-As before, if we were to try to evaluate `z` in the repl, ghci would hang. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ [ts]`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance.
+As before, if we were to try to evaluate `z` in the repl, ghci would hang. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ ts`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance.
 
 Let's rewrite the above with the logic monad as follows.
 
@@ -98,7 +98,7 @@ choices = msum . map return
 type K m a = Monad m => (m a -> (a -> m a) -> m a)
 ```
 
-Now to the problem at hand. We index rows and cols and diagonals by integers. The terminology is a little unorthodox in that we regard rows and columns as degenerate diagonals.
+Now to the problem at hand. We index rows, columns, and diagonals by integers. The terminology is a little unorthodox in that we regard rows and columns as degenerate diagonals.
 
 ```haskell
 data Diagonal = Row Int
@@ -221,3 +221,83 @@ I contented myself with the following diagrams (for n = 4, 5) of the traversal, 
 The green paths represent successful placements of n queens, which is to say, successful searches from the root to a leaf. The red paths are where the algorithm gave up at some point and backtracked. Given a red leaf, the precise point where the backtracking occurred was that unique ancestor of the red leaf which has no green path through it; those are the nodes at which the algorithm has determined that there is no way to add one more non-attacking queen.
 
 The numbers in black along the bottom correspond to the order in which solutions were emitted by the list and logic monads, respectively. In the 5x5 diagram of the search tree we can see the logic monad working differently from list, for instance `[1,4,2,5,3]` is a correct solution to the five queens problem which is the third solution emitted by logic but is actually the second solution in the lexicographic order on lists of integers of length 5.
+
+# The MonadLogic instance on List
+
+The definition of the logic monad seems very mysterious. As it happens, we don't need actually need to use the logic monad to observe all of the above, we can use the `MonadLogic` instance on list, which gives rise to `interleave` and `(>>-)` on lists.
+
+```
+>>> (queens 8 (>>-) :: [Q]) == observeAll (queens 8 (>>-) :: Logic Q)
+True
+```
+
+The above says that using the MonadLogic instance on `[Q]` and using fair conjunction `(>>-)` to compute the solutions to the 8 queens problem emits solutions in the same order as if we used fair conjunction with `Logic Q`. So to get a better grasp on how the logic monad works, we can start by looking at this (excerpted from [Control.Monad.Logic](http://hackage.haskell.org/package/logict-0.2.3/docs/src/Control-Monad-Logic-Class.html#MonadLogic)):
+
+```haskell
+-- | Minimal implementation: msplit
+class (MonadPlus m) => MonadLogic m where
+    -- | Attempts to split the computation, giving access to the first
+    --   result. Satisfies the following laws:
+    --
+    --   > msplit mzero                == return Nothing
+    --   > msplit (return a `mplus` m) == return (Just (a, m))
+    msplit     :: m a -> m (Maybe (a, m a))
+
+    -- | Fair disjunction. It is possible for a logical computation
+    --   to have an infinite number of potential results, for instance:
+    --
+    --   > odds = return 1 `mplus` liftM (2+) odds
+    --
+    --   Such computations can cause problems in some circumstances. Consider:
+    --
+    --   > do x <- odds `mplus` return 2
+    --   >    if even x then return x else mzero
+    --
+    --   Such a computation may never consider the 'return 2', and will
+    --   therefore never terminate. By contrast, interleave ensures fair
+    --   consideration of both branches of a disjunction
+    interleave :: m a -> m a -> m a
+
+    -- | Fair conjunction. Similarly to the previous function, consider
+    --   the distributivity law for MonadPlus:
+    --
+    --   > (mplus a b) >>= k = (a >>= k) `mplus` (b >>= k)
+    --
+    --   If 'a >>= k' can backtrack arbitrarily many tmes, (b >>= k) may never
+    --   be considered. (>>-) takes similar care to consider both branches of
+    --   a disjunctive computation.
+    (>>-)      :: m a -> (a -> m b) -> m b
+
+    -- | Logical conditional. The equivalent of Prolog's soft-cut. If its
+    --   first argument succeeds at all, then the results will be fed into
+    --   the success branch. Otherwise, the failure branch is taken.
+    --   satisfies the following laws:
+    --
+    --   > ifte (return a) th el           == th a
+    --   > ifte mzero th el                == el
+    --   > ifte (return a `mplus` m) th el == th a `mplus` (m >>= th)
+    ifte       :: m a -> (a -> m b) -> m b -> m b
+
+    -- | Pruning. Selects one result out of many. Useful for when multiple
+    --   results of a computation will be equivalent, or should be treated as
+    --   such.
+    once       :: m a -> m a
+
+    -- All the class functions besides msplit can be derived from msplit, if
+    -- desired
+    interleave m1 m2 = msplit m1 >>=
+                        maybe m2 (\(a, m1') -> return a `mplus` interleave m2 m1')
+
+    m >>- f = do Just (a, m') <- msplit m
+                 interleave (f a) (m' >>- f)
+
+    ifte t th el = msplit t >>= maybe el (\(a,m) -> th a `mplus` (m >>= th))
+
+    once m = do Just (a, _) <- msplit m
+                return a
+
+-- An instance of MonadLogic for lists
+instance MonadLogic [] where
+    msplit []     = return Nothing
+    msplit (x:xs) = return $ Just (x, xs)
+```
