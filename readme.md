@@ -202,5 +202,10 @@ Now, since the list monad traversal was so easy to understand, might we obtain a
 
 I contented myself with the following diagrams (for n = 4, 5) of the traversal, made with [Diagrams](http://projects.haskell.org/diagrams/). Note that the trees shown in the figures are much larger than the search trees created by folding `awtaoq` n times, since the search tree is being pruned by the algorithm as it goes (depending on which of `(>>=)` or `(>>-)` we use).
 
-TODO: add the diagrams.
+![four](https://raw.githubusercontent.com/sshastry/queenslogic/master/four.png)
 
+![five](https://raw.githubusercontent.com/sshastry/queenslogic/master/five.png)
+
+The green paths represent successful placements of n queens, which is to say, successful searches from the root to a leaf. The red paths are where the algorithm gave up at some point and backtracked. Given a red leaf, the precise point where the backtracking occurred was that unique ancestor of the red leaf which has no green path through it; those are the nodes at which the algorithm has determined that there is no way to add one more non-attacking queen.
+
+The numbers in black along the bottom correspond to the order in which solutions were emitted by the list and logic monads, respectively. In the 5x5 diagram of the search tree we can see the logic monad working differently from list, for instance `[1,4,2,5,3]` is a correct solution to the five queens problem which is the third solution emitted by logic but is actually the second solution in the lexicographic order on lists of integers of length 5.
