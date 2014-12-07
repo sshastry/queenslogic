@@ -9,7 +9,7 @@ Let's first briefly explain what the logic monad is for.
 
 ## Logic
 
-Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite or countably infinite ordered sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
+Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite or countably infinite sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
 
 ```haskell
 >>> import Control.Applicative
@@ -61,8 +61,6 @@ z0 = observe $ (odds0 `interleave` ts0) >>= (\x -> if even x then return x else 
 In the repl:
 
 ```haskell
->>> z
-^CInterrupted.
 >>> z0
 10
 >>>
@@ -196,7 +194,7 @@ Logic> [[2,4,6,8,3,1,7,5],[3,1,7,5,8,2,4,6],[1,5,8,6,3,7,2,4],[2,5,7,1,3,8,6,4],
         [7,4,2,8,6,1,3,5],[7,5,3,1,6,8,2,4]]
 ```
 
-First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes. Also as a sanity check, let's make sure that we get 92 solutions to the 8 queens problem.
+First, let us confirm in the repl that we get the same answer from both methods, as far as solving the n queens problem goes. Also as a sanity check, let's make sure that we got 92 solutions to the 8 queens problem.
 
 ```haskell
 >>> import Data.Set as Set
