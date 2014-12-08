@@ -140,7 +140,7 @@ Finally, we compute all possible solutions by actually performing the inductive 
 
 ```haskell
 queens :: MonadLogic m => Int -> K m Q -> m Q
-queens n (>>~) = foldr (>>~) (return mzero) (replicate n (awtaoq n))
+queens n (>>~) = foldl (>>~) (return mzero) (replicate n (awtaoq n))
 ```
 
 Due to how we've factored the code, we can observe the difference between how the list monad traverses the search space, and how the logic monad traverses the search space. Here's how list traverses with `(>>=)` (output formatted for readability):

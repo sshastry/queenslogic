@@ -14,6 +14,8 @@ import Data.List (intersect,inits,(\\))
 import Data.Tree
 import Data.Maybe (fromJust)
 
+{- TODO: complete refactoring and rewrite -}
+
 -- example = make fourP -- runghc illustrations.hs -o four.svg -w 5000 -h 1100
 example = make fiveP -- runghc illustrations.hs -o five.svg -w 24000 -h 1250
 -- example = make eightP -- runs out of memory
