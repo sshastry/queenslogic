@@ -209,9 +209,9 @@ Now, since the list monad traversal was so easy to understand, might we obtain a
 
 I contented myself with the following diagrams (for n = 4, 5) of the traversal, made with [Diagrams](http://projects.haskell.org/diagrams/). Note that the trees shown in the figures are much larger than the search trees created by folding `awtaoq` n times, since the search tree is being pruned by the algorithm as it goes (depending on which of `(>>=)` or `(>>-)` we use).
 
-![four](https://raw.githubusercontent.com/sshastry/queenslogic/master/four.png)
+![four](https://raw.githubusercontent.com/sshastry/queenslogic/master/resources/four.png)
 
-![five](https://raw.githubusercontent.com/sshastry/queenslogic/master/five.png)
+![five](https://raw.githubusercontent.com/sshastry/queenslogic/master/resources/five.png)
 
 (click on the images and zoom in)
 
