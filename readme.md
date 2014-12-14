@@ -126,7 +126,7 @@ iswrt (i,j) qs = diags (i,j) `intersect` underThreat == []
     underThreat = qs' >>= diags
 ```
 
-The following function is the inductive step of the algorithm. Given an admissible placement `qs` of queens, where the length of `qs` is strictly less than the dimension `n` of the board, `awtaoq` returns a nondeterministic value of all of the ways to extend `qs` by one more queen and still have an admissible placement of queens on the board. Using a [monad comprehension](https://ghc.haskell.org/trac/ghc/wiki/MonadComprehensions) is how we enforce our chosen notion of nondeterminism.
+The following function is the inductive step of the algorithm. Given an admissible placement `qs` of queens, where the length of `qs` is strictly less than the dimension `n` of the board, `awtaoq` returns a nondeterministic value of all of the ways to extend `qs` by one more queen and still have an admissible placement of queens on the board. We enforce our chosen notion of nondeterminism by means of a [monad comprehension](https://ghc.haskell.org/trac/ghc/wiki/MonadComprehensions).
 
 ```haskell
 -- awtaoq := "all ways to add one queen"
@@ -219,7 +219,7 @@ The green paths represent successful placements of n queens, which is to say, su
 
 The numbers in black along the bottom correspond to the order in which solutions were emitted by the list and logic monads, respectively. In the 5x5 diagram of the search tree we can see the logic monad working differently from list, for instance `[1,4,2,5,3]` is a correct solution to the five queens problem which is the third solution emitted by logic but is actually the second solution in the lexicographic order on lists of integers of length 5.
 
-# The MonadLogic instance on List
+## The MonadLogic instance on List
 
 The definition of the logic monad seems very mysterious. As it happens, we don't need actually need to use the logic monad to observe all of the above, we can use the `MonadLogic` instance on list, which gives rise to `interleave` and `(>>-)` on lists.
 
