@@ -3,7 +3,7 @@
 
 The aim of these notes is to use the n queens problem to give an example of the use of the logic monad. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (available [here](http://okmij.org/ftp/papers/LogicT.pdf)). I originally learned of the logic monad from "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
 
-The examples in those articles seemed a bit complicated to me. The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving that using the logic monad.
+The examples in those articles seemed a bit artificial to me. The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving it with the logic monad.
 
 Let's first briefly explain what the logic monad is for.
 
@@ -12,15 +12,35 @@ Let's first briefly explain what the logic monad is for.
 Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite or countably infinite sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
 
 ```haskell
->>> import Control.Applicative
->>> (+) <$> [1,2,3] <*> [10,20,30]
-[11,21,31,12,22,32,13,23,33]
+>>> fmap (\x -> x*x) [1,2,3]
+[1,4,9]
 ```
 
-which means
-> if we add a value which may be 1,2, or 3 to a value which may be 10,20, or 30 we get a value which may be 11,21,31,12,22,32,13,23, or 33.
+which we take to mean
+> if we square a value which may be 1, 2, or 3 we get a value which may be 1, 4, or 9.
 
-Naively building up a nondeterministic value using `(++)` for the list monad, we might encounter the following problem (example taken from the paper by Kiselyov et al):
+Now, we are not only interested in assembling nondeterministic values monadically i.e. with `(>>=)` (where, in the above example, `fmap f x = x >>= (return . f)`) we are also interested in assembling them with another operation `mplus`, which in the case of the MonadPlus instance on list is `(++)`. For example:
+
+```haskell
+>>> fmap (\x -> x*x) ([2,4] ++ [10,20])
+[4,16,100,400]
+```
+
+in other words `mplus` allows us to build up new nondeterministic values from old. Thus MonadPlus allows us to build up computations in two distinct ways: monadically and with `mplus`. For reference, here's the MonadPlus typeclass and instance on list:
+
+```haskell
+class Monad m => MonadPlus m where
+  mzero :: m a
+  mplus :: m a -> m a -> m a
+
+instance MonadPlus [] where
+  mzero = []
+  mplus = (++)
+```
+
+Some laws should be satisfied for a type to be called a MonadPlus (see [here](http://hackage.haskell.org/package/base-4.7.0.2/docs/src/Control-Monad.html#MonadPlus)).
+
+Naively building up a nondeterministic value using `(++)` with list as MonadPlus, we might encounter the following problem (example taken from the paper by Kiselyov et al):
 
 ```haskell
 >>> let odds = map (\x -> 2*x + 1) [0..]
@@ -28,7 +48,7 @@ Naively building up a nondeterministic value using `(++)` for the list monad, we
 ^CInterrupted.
 ```
 
-i.e. ghci hangs and we had to ctrl-c out of it. Let's make very explicit the operations of the list monad:
+i.e. ghci hangs and we had to ctrl-c out of it. Let's make very explicit the operations of list as MonadPlus:
 
 ```haskell
 odds :: [Integer]
@@ -41,9 +61,7 @@ z :: Integer
 z = head $ (odds ++ ts) >>= (\x -> if even x then [x] else [])
 ```
 
-As before, if we were to try to evaluate `z` in the repl, ghci would hang. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ ts`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance.
-
-Let's rewrite the above with the logic monad as follows.
+As before, if we were to try to evaluate `z` in the repl, ghci would hang. This is unfortunate, since z should be equal to 10, the first even number in the list `odds ++ ts`. The problem is that `(++)` is *unfair* in the sense that it demands that all of the elements of its first argument be shoved through the `(>>=)` before its second argument gets a chance. The logic monad provides a fair version of `mplus`, called `interleave`, such that (xs `interleave` ys) will shove the first element of `xs` through `(>>=)`, then the first element of `ys`, then the second element of `xs`, then the second element of `ys`, etc.
 
 ```haskell
 import Control.Monad.Logic
@@ -143,7 +161,7 @@ queens :: MonadLogic m => Int -> K m Q -> m Q
 queens n (>>~) = foldl (>>~) (return mzero) (replicate n (awtaoq n))
 ```
 
-Due to how we've factored the code, we can observe the difference between how the list monad traverses the search space, and how the logic monad traverses the search space. Here's how list traverses with `(>>=)` (output formatted for readability):
+Let's see how the two monads traverse the search space. Here's how list traverses with `(>>=)` (output formatted for readability):
 
 ```haskell
 >>> queens 8 (>>=) :: [Q]
@@ -203,7 +221,7 @@ True
 92
 ```
 
-As expected, the logic monad traversed the search tree differently from the list monad. Looking at the output from the list monad, we can see that the solutions were produced in lexicographic order. This corresponds to the fact that the list monad traversed the search space using depth first traversal. See [here](http://cs.nyu.edu/courses/spring03/G22.2560-001/nondet.html) for a discussion of the search spaces associated to nondeterministic algorithms.
+As expected, the logic monad traversed the search space differently from the list monad. Looking at the output from the list monad, we can see that the solutions were produced in lexicographic order. This corresponds to the fact that the list monad traversed the search space using depth first traversal. See [here](http://cs.nyu.edu/courses/spring03/G22.2560-001/nondet.html) for a discussion of the search spaces associated to nondeterministic algorithms.
 
 Now, since the list monad traversal was so easy to understand, might we obtain a similarly simple description of the logic monad traveral? Not that I could tell.
 
@@ -228,7 +246,7 @@ The definition of the logic monad seems very mysterious. As it happens, we don't
 True
 ```
 
-The above says that using the MonadLogic instance on `[Q]` and using fair conjunction `(>>-)` to compute the solutions to the 8 queens problem emits solutions in the same order as if we used fair conjunction with `Logic Q`. So to get a better grasp on how the logic monad works, we can start by looking at this (excerpted from [Control.Monad.Logic](http://hackage.haskell.org/package/logict-0.2.3/docs/src/Control-Monad-Logic-Class.html#MonadLogic)):
+The above says that using the MonadLogic instance on `[Q]` and using fair conjunction `(>>-)` to compute the solutions to the 8 queens problem emits solutions in the same order as if we used fair conjunction with `Logic Q`. So to get a better grasp on the logic monad, we can start by looking at this (excerpted from [Control.Monad.Logic](http://hackage.haskell.org/package/logict-0.2.3/docs/src/Control-Monad-Logic-Class.html#MonadLogic)):
 
 ```haskell
 -- | Minimal implementation: msplit
