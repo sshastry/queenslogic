@@ -32,10 +32,14 @@ oddsPlus' :: Int -> Logic Int
 oddsPlus' n = odds' >>= \x -> return (x + n)
 
 xs' :: Logic Int
-xs' = ((return 0) `interleave` (return 1)) >>= oddsPlus' >>= (\x -> if even x then (return x) else mzero)
+xs' = ((return 0) `interleave` (return 1))
+      >>= oddsPlus'
+      >>= (\x -> if even x then (return x) else mzero)
 
 xs'' :: Logic Int
-xs'' = ((return 0) `interleave` (return 1)) >>- oddsPlus' >>- (\x -> if even x then (return x) else mzero)
+xs'' = ((return 0) `interleave` (return 1))
+       >>- oddsPlus'
+       >>- (\x -> if even x then (return x) else mzero)
 
 
 

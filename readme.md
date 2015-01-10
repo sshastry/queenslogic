@@ -96,21 +96,25 @@ xs :: [Int]
 xs = ([0] ++ [1]) >>= oddsPlus >>= (\x -> if even x then [x] else [])
 ```
 
-In the repl, evaluating xs hangs since the fragment `oddsPlus >>= (\x -> if even x then [x] else [])` backtracks an infinite number of times. Even replacing with `interleave` does us no good, evaluating xs' below will also hang:
+In the repl, evaluating `xs` hangs since the fragment `(\x -> if even x then [x] else [])` backtracks to `oddsPlus` an infinite number of times, even though we know that the first element of `xs` should be 2. Replacing `(++)` with `interleave` does us no good, evaluating `xs'` below will also hang:
 
 ```haskell
 oddsPlus' :: Int -> Logic Int
 oddsPlus' n = odds' >>= \x -> return (x + n)
 
 xs' :: Logic Int
-xs' = ((return 0) `interleave` (return 1)) >>= oddsPlus' >>= (\x -> if even x then (return x) else mzero)
+xs' = ((return 0) `interleave` (return 1))
+      >>= oddsPlus'
+      >>= (\x -> if even x then (return x) else mzero)
 ```
 
 We need a fair version of `(>>=)`, which is denoted `(>>-)`.
 
 ```haskell
 xs'' :: Logic Int
-xs'' = ((return 0) `interleave` (return 1)) >>- oddsPlus' >>- (\x -> if even x then (return x) else mzero)
+xs'' = ((return 0) `interleave` (return 1))
+       >>- oddsPlus'
+       >>- (\x -> if even x then (return x) else mzero)
 ```
 
 Then, in the repl:
