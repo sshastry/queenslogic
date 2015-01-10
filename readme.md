@@ -1,15 +1,13 @@
 
 ## Introduction
 
-The aim of these notes is to use the n queens problem to give an example of the use of the logic monad. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (available [here](http://okmij.org/ftp/papers/LogicT.pdf)). I originally learned of the logic monad from "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
+The aim of these notes is to apply the logic monad to the n queens problem. The logic monad was introduced in paper "Backtracking, interleaving, and terminating monad transformers: (functional pearl)" by Oleg Kiselyov, Chung-chieh Shan, Daniel P. Friedman, Amr Sabry (henceforth [KSFS]; paper available [here](http://okmij.org/ftp/papers/LogicT.pdf)). Also see "Adventures in Three Monads" by Edward Z. Yang in [The Monad Reader Issue 15](http://themonadreader.files.wordpress.com/2010/01/issue15.pdf).
 
-The examples in those articles seemed a bit artificial to me. The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving it with the logic monad.
-
-Let's first briefly explain what the logic monad is for.
+The first backtracking algorithm I learned was the solution to the n queens problem, so I wondered what I could see by solving it with the logic monad.
 
 ## Logic
 
-Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Integer]` might mean a finite or countably infinite sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
+Besides being used for collections, the list type Haskell is used to represent a nondeterministic value. For example `xs :: [Int]` might mean a finite or countably infinite sequence of integers, or it might mean one of many unknown integers i.e. a single nondeterministic integer. The latter semantics is illustrated by the following
 
 ```haskell
 >>> fmap (\x -> x*x) [1,2,3]
@@ -40,7 +38,7 @@ instance MonadPlus [] where
 
 Some laws should be satisfied for a type to be called a MonadPlus (see [here](http://hackage.haskell.org/package/base-4.7.0.2/docs/src/Control-Monad.html#MonadPlus)).
 
-Naively building up a nondeterministic value using `(++)` with list as MonadPlus, we might encounter the following problem (example taken from the paper by Kiselyov et al):
+Naively building up a nondeterministic value using `(++)` with list as MonadPlus, we might encounter the following problem (example taken from [KSFS]):
 
 ```haskell
 >>> let odds = map (\x -> 2*x + 1) [0..]
@@ -51,13 +49,13 @@ Naively building up a nondeterministic value using `(++)` with list as MonadPlus
 i.e. ghci hangs and we had to ctrl-c out of it. Let's make very explicit the operations of list as MonadPlus:
 
 ```haskell
-odds :: [Integer]
-odds = [1] ++ (odds >>= \x -> [x+2])
+odds :: [Int]
+odds = map (\x -> 2*x + 1) [0..]
 
-ts :: [Integer]
+ts :: [Int]
 ts = [10] ++ [20] ++ [30]
 
-z :: Integer
+z :: Int
 z = head $ (odds ++ ts) >>= (\x -> if even x then [x] else [])
 ```
 
@@ -66,30 +64,69 @@ As before, if we were to try to evaluate `z` in the repl, ghci would hang. This 
 ```haskell
 import Control.Monad.Logic
 
-odds0 :: Logic Integer
-odds0 = (return 1) `mplus` (odds0 >>= \x -> return (x+2))
+choices :: MonadLogic m => [a] -> m a
+choices = msum . map return
 
-ts0 :: Logic Integer
-ts0 = msum (map return [10,20,30])
+odds' :: Logic Int
+odds' = choices odds
 
-z0 :: Integer
-z0 = observe $ (odds0 `interleave` ts0) >>= (\x -> if even x then return x else mzero)
+ts' :: Logic Int
+ts' = choices [10,20,30]
+
+z' :: Int
+z' = observe $ (odds' `interleave` ts') >>= (\x -> if even x then return x else mzero)
 ```
 
 In the repl:
 
 ```haskell
->>> z0
+>>> z'
 10
 ```
 
-That's a simple example of the use of the logic monad, or rather of `MonadPlus` instances which are made into instances of `MonadLogic`. On such instances, we have fair versions of `mplus` and `(>>=)` which are denoted `interleave` and `(>>-)` respectively (so we can still use the unfair `mplus` and `(>>=)` if we need them).
+Given two nondeterministic values `x` and `y` (in some monadic context of nondeterminism) let's define `x ≃ y` to mean that the set of values emitted by `x` and `y` are the same --- so that the order in which the elements appear is ignored --- and otherwise we write `x ≄  y`. If `x` is an infinite list then we have that `x ++ y ≃ x` i.e. we can only observe elements of `x`. So `≃` and `≄` give us a more precise way to talk about the fairness of computations.
 
-The above example doesn't explain when to use `(>>-)` instead of `(>>=)`; I'll refer to the paper by Kiselyov et al for more on that.
+Now, the unfairness of `mplus` leads to the unfairness of `(>>=)`: if `x` is infinite then we have that `(x ++ y >>= k) ≃ (x >>= k)`, something we saw in the earlier example. But `x` being infinite is not the only way that `x ++ y >>= k` could fail, as shown by the following example (also from [KSFS]):
+
+```haskell
+oddsPlus :: Int -> [Int]
+oddsPlus n = odds >>= \x -> return (x + n)
+
+xs :: [Int]
+xs = ([0] ++ [1]) >>= oddsPlus >>= (\x -> if even x then [x] else [])
+```
+
+In the repl, evaluating xs hangs since the fragment `oddsPlus >>= (\x -> if even x then [x] else [])` backtracks an infinite number of times. Even replacing with `interleave` does us no good, evaluating xs' below will also hang:
+
+```haskell
+oddsPlus' :: Int -> Logic Int
+oddsPlus' n = odds' >>= \x -> return (x + n)
+
+xs' :: Logic Int
+xs' = ((return 0) `interleave` (return 1)) >>= oddsPlus' >>= (\x -> if even x then (return x) else mzero)
+```
+
+We need a fair version of `(>>=)`, which is denoted `(>>-)`.
+
+```haskell
+xs'' :: Logic Int
+xs'' = ((return 0) `interleave` (return 1)) >>- oddsPlus' >>- (\x -> if even x then (return x) else mzero)
+```
+
+Then, in the repl:
+
+```haskell
+>>> head xs
+^CInterrupted.
+>>> observe xs'
+^CInterrupted.
+>>> observe xs''
+2
+```
 
 ## n queens
 
-The problem is well known, see [here](http://en.wikipedia.org/wiki/Eight_queens_puzzle) for a description. There is a solution to this problem in Haskell using list comprehensions [here](https://www.haskell.org/haskellwiki/99_questions/Solutions/90). That solution makes use of `[[Int]]` to represent a nondeterministic value of a collection of integers, thus using the list type with two different meanings. Let's tease apart the two meanings so that we can use the same code with both the list and logic monads.
+The problem is described [here](http://en.wikipedia.org/wiki/Eight_queens_puzzle). There is a solution to this problem in Haskell using list comprehensions [here](https://www.haskell.org/haskellwiki/99_questions/Solutions/90). That solution makes use of `[[Int]]` to represent a nondeterministic value of a collection of integers, thus using the list type with two different meanings. Let's tease apart the two meanings so that we can use the same code with both the list and logic monads.
 
 Starting from scratch:
 
@@ -239,78 +276,16 @@ The numbers in black along the bottom correspond to the order in which solutions
 
 ## The MonadLogic instance on List
 
-The definition of the logic monad seems very mysterious. As it happens, we don't need actually need to use the logic monad to observe all of the above, we can use the `MonadLogic` instance on list, which gives rise to `interleave` and `(>>-)` on lists.
+It turns out that we don't need actually need to use the logic monad to observe all of the above, we can use the `MonadLogic` instance on list, which gives rise to `interleave` and `(>>-)` for lists.
 
 ```
 >>> (queens 8 (>>-) :: [Q]) == observeAll (queens 8 (>>-) :: Logic Q)
 True
 ```
 
-The above says that using the MonadLogic instance on `[Q]` and using fair conjunction `(>>-)` to compute the solutions to the 8 queens problem emits solutions in the same order as if we used fair conjunction with `Logic Q`. So to get a better grasp on the logic monad, we can start by looking at this (excerpted from [Control.Monad.Logic](http://hackage.haskell.org/package/logict-0.2.3/docs/src/Control-Monad-Logic-Class.html#MonadLogic)):
+The above says that using the MonadLogic instance on `[Q]` and using fair conjunction `(>>-)` to compute the solutions to the 8 queens problem emits solutions in the same order as if we used fair conjunction with `Logic Q`. So to get a better grasp on the logic monad, we can start by looking at the definition of the MonadLogic typeclass in [Control.Monad.Logic](http://hackage.haskell.org/package/logict-0.2.3/docs/src/Control-Monad-Logic-Class.html#MonadLogic) and then reflecting on this:
 
 ```haskell
--- | Minimal implementation: msplit
-class (MonadPlus m) => MonadLogic m where
-    -- | Attempts to split the computation, giving access to the first
-    --   result. Satisfies the following laws:
-    --
-    --   > msplit mzero                == return Nothing
-    --   > msplit (return a `mplus` m) == return (Just (a, m))
-    msplit     :: m a -> m (Maybe (a, m a))
-
-    -- | Fair disjunction. It is possible for a logical computation
-    --   to have an infinite number of potential results, for instance:
-    --
-    --   > odds = return 1 `mplus` liftM (2+) odds
-    --
-    --   Such computations can cause problems in some circumstances. Consider:
-    --
-    --   > do x <- odds `mplus` return 2
-    --   >    if even x then return x else mzero
-    --
-    --   Such a computation may never consider the 'return 2', and will
-    --   therefore never terminate. By contrast, interleave ensures fair
-    --   consideration of both branches of a disjunction
-    interleave :: m a -> m a -> m a
-
-    -- | Fair conjunction. Similarly to the previous function, consider
-    --   the distributivity law for MonadPlus:
-    --
-    --   > (mplus a b) >>= k = (a >>= k) `mplus` (b >>= k)
-    --
-    --   If 'a >>= k' can backtrack arbitrarily many tmes, (b >>= k) may never
-    --   be considered. (>>-) takes similar care to consider both branches of
-    --   a disjunctive computation.
-    (>>-)      :: m a -> (a -> m b) -> m b
-
-    -- | Logical conditional. The equivalent of Prolog's soft-cut. If its
-    --   first argument succeeds at all, then the results will be fed into
-    --   the success branch. Otherwise, the failure branch is taken.
-    --   satisfies the following laws:
-    --
-    --   > ifte (return a) th el           == th a
-    --   > ifte mzero th el                == el
-    --   > ifte (return a `mplus` m) th el == th a `mplus` (m >>= th)
-    ifte       :: m a -> (a -> m b) -> m b -> m b
-
-    -- | Pruning. Selects one result out of many. Useful for when multiple
-    --   results of a computation will be equivalent, or should be treated as
-    --   such.
-    once       :: m a -> m a
-
-    -- All the class functions besides msplit can be derived from msplit, if
-    -- desired
-    interleave m1 m2 = msplit m1 >>=
-                        maybe m2 (\(a, m1') -> return a `mplus` interleave m2 m1')
-
-    m >>- f = do Just (a, m') <- msplit m
-                 interleave (f a) (m' >>- f)
-
-    ifte t th el = msplit t >>= maybe el (\(a,m) -> th a `mplus` (m >>= th))
-
-    once m = do Just (a, _) <- msplit m
-                return a
-
 -- An instance of MonadLogic for lists
 instance MonadLogic [] where
     msplit []     = return Nothing

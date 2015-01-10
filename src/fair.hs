@@ -1,21 +1,42 @@
 
 import Control.Monad.Logic
 
-odds :: [Integer]
-odds = [1] ++ (odds >>= \x -> [x+2])
+odds :: [Int]
+odds = map (\x -> 2*x + 1) [0..]
 
-ts :: [Integer]
+ts :: [Int]
 ts = [10] ++ [20] ++ [30]
 
-z :: Integer
+z :: Int
 z = head $ (odds ++ ts) >>= (\x -> if even x then [x] else [])
 
-odds0 :: Logic Integer
-odds0 = (return 1) `mplus` (odds0 >>= \x -> return (x+2))
+choices :: MonadLogic m => [a] -> m a
+choices = msum . map return
 
-ts0 :: Logic Integer
-ts0 = msum (map return [10,20,30])
+odds' :: Logic Int
+odds' = choices odds
 
-z0 :: Integer
-z0 = observe $ (odds0 `interleave` ts0) >>= (\x -> if even x then return x else mzero)
+ts' :: Logic Int
+ts' = choices [10,20,30]
+
+z' :: Int
+z' = observe $ (odds' `interleave` ts') >>= (\x -> if even x then return x else mzero)
+
+oddsPlus :: Int -> [Int]
+oddsPlus n = odds >>= \x -> return (x + n)
+
+xs :: [Int]
+xs = ([0] ++ [1]) >>= oddsPlus >>= (\x -> if even x then [x] else [])
+
+oddsPlus' :: Int -> Logic Int
+oddsPlus' n = odds' >>= \x -> return (x + n)
+
+xs' :: Logic Int
+xs' = ((return 0) `interleave` (return 1)) >>= oddsPlus' >>= (\x -> if even x then (return x) else mzero)
+
+xs'' :: Logic Int
+xs'' = ((return 0) `interleave` (return 1)) >>- oddsPlus' >>- (\x -> if even x then (return x) else mzero)
+
+
+
 
